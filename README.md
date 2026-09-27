@@ -1,6 +1,7 @@
 # ze_resolve
 
-A new Flutter project.
+Orientação ao Desenvolvimento de Projeto Integrador (Aplicações Distribuídas) – Extensionista
+Projeto Integrador II (Zé resolve)
 
 ## Getting Started
 

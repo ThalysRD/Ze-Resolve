@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/entregas/
 
 # Symbolication related
 app.*.symbols
@@ -46,3 +47,27 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Backend: ambiente, dados persistentes e segredos locais
+backend/.venv/
+backend/.packages/
+backend/data/
+__pycache__/
+.pytest_cache/
+.env
+backend/secrets/
+backend/.postgres/
+backend/.downloads/
+android/app/google-services.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+.env.*
+!.env.example
+**/*firebase-admin*.json
+**/*firebase-adminsdk*.json
+# Relatórios locais de falha da JVM durante compilação.
+android/hs_err_pid*.log

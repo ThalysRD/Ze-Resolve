@@ -11,5 +11,11 @@ indent_size = 2
 [*.{py,ps1}]
 indent_size = 4
 
+[*.{kts,gradle}]
+indent_size = 4
+
+[Caddyfile]
+indent_size = 4
+
 [*.md]
 trim_trailing_whitespace = false

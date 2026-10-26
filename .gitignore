@@ -31,6 +31,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+**/build/
 /coverage/
 /entregas/
 
@@ -65,9 +66,21 @@ android/app/google-services.json
 *.pfx
 *.jks
 *.keystore
+android/key.properties
 .env.*
 !.env.example
 **/*firebase-admin*.json
 **/*firebase-adminsdk*.json
 # Relatórios locais de falha da JVM durante compilação.
 android/hs_err_pid*.log
+
+# Testes e CI ficam apenas na máquina local
+/.github/
+/test/
+/backend/tests/
+/backend/pytest.ini
+/backend/requirements-dev.txt
+/backend/app/run_tests.py
+/scripts/test_project.ps1
+/scripts/measure_api.py
+/docs/testes_flutter.md

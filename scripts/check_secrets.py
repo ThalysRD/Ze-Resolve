@@ -36,6 +36,7 @@ def check():
             or "secrets" in parts
             or "firebase-admin" in path.name
             or path.name == "google-services.json"
+            or path.name == "key.properties"
         )
         if forbidden:
             failures.add(name)
@@ -43,15 +44,6 @@ def check():
         if path.stat().st_size > 5_000_000:
             continue
         content = path.read_bytes()
-        # Exemplos declaradamente fictícios usados na documentação e no teste
-        # de normalização de URL. A permissão se restringe a estes literais.
-        content = content.replace(
-            b"postgresql+psycopg://USUARIO:SENHA_URL_ENCODED@",
-            b"EXEMPLO_SEM_CREDENCIAL@",
-        )
-        content = content.replace(
-            b"postgresql://tester:explicit@localhost/test", b"EXEMPLO_TESTE_LOCAL"
-        )
         if any(pattern.search(content) for pattern in SIGNATURES):
             failures.add(name)
     if failures:

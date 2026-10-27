@@ -1,0 +1,14 @@
+assets/logo.svg
+lib/assets/logo.png
+lib/assets/logo.svg
+lib/features/auth/screens/auth_screens.dart
+lib/features/auth/screens/profile/profile_screen.dart
+lib/features/client/client_routes.dart
+lib/features/client/screens/professional_profile_screen.dart
+lib/features/client/screens/rate_service_screen.dart
+lib/features/client/screens/request_details_screen.dart
+lib/features/client/screens/service_request_screen.dart
+lib/features/professional/professional_routes.dart
+lib/features/professional/screens/detalhes_solicitacao_profissional_screen.dart
+lib/features/professional/screens/servico_em_andamento_screen.dart
+lib/features/shared/screens/user_profile_screen.dart

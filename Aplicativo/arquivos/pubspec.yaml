@@ -1,0 +1,37 @@
+name: ze_resolve
+description: "Zé Resolve: serviços locais para clientes e profissionais."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  geolocator: ^14.0.2
+  http: ^1.6.0
+  flutter_secure_storage: ^11.2.0
+  web_socket_channel: ^3.0.3
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/logo.png"
+  min_sdk_android: 21
+  macos:
+    generate: true
+    image_path: "assets/logo.png"
+
+flutter:
+  uses-material-design: true

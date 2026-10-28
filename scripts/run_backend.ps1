@@ -2,7 +2,7 @@ param(
     [string]$BindAddress = '127.0.0.1',
     [ValidateRange(1, 65535)][int]$Port = 8000,
     [switch]$Reload,
-    [ValidateSet('server', 'seed', 'docs', 'upgrade', 'test')][string]$Task = 'server'
+    [ValidateSet('server', 'seed', 'docs', 'upgrade')][string]$Task = 'server'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,9 +42,6 @@ if ($Reload) { $serverArguments += '--reload' }
 if ($Task -eq 'seed') { $serverArguments = @('-m', 'app.seed') }
 if ($Task -eq 'docs') { $serverArguments = @('-m', 'app.export_docs') }
 if ($Task -eq 'upgrade') { $serverArguments = @('-m', 'app.migrate') }
-if ($Task -eq 'test') {
-    $serverArguments = @('-m', 'app.run_tests')
-}
 Push-Location -LiteralPath $backendPath
 try {
     if ($Task -eq 'server') { Write-Host "Iniciando API em http://${BindAddress}:$Port." }

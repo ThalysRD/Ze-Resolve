@@ -84,3 +84,4 @@ android/hs_err_pid*.log
 /scripts/test_project.ps1
 /scripts/measure_api.py
 /docs/testes_flutter.md
+/docs/limpeza_codigo.md

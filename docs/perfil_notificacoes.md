@@ -54,7 +54,7 @@ A mensagem e os registros `push_deliveries` são gravados na mesma transação, 
 
 Push usa título “Zé Resolve” e texto discreto “Você recebeu uma nova mensagem.”; não inclui texto da conversa ou endereço na tela bloqueada. O payload contém os IDs de mensagem, solicitação e destinatário. Tocar abre a conversa somente para a conta destinatária autenticada, e a API revalida o acesso. Tanto a abertura com o app encerrado quanto em segundo plano são tratadas. Em primeiro plano, a central combina WebSocket e FCM sem repetir banners.
 
-Os testes exercitam privacidade, leitura, recuperação, sessão do dispositivo, fila após falha, cancelamento ao trocar de conta e ausência de reenvio de entregas já concluídas. Criar app com banco de teste desabilita envio externo por padrão; habilitação explícita usa `create_app(url, enable_push=True)`. Testes nunca enviam para Firebase.
+Ao criar a aplicação com um banco diferente do padrão, o envio externo fica desabilitado por padrão; a habilitação explícita usa `create_app(url, enable_push=True)`.
 
 Entrega efetiva depende de permissão, conectividade e do sistema operacional. A fila usa tag por mensagem no Android para reduzir avisos repetidos em uma tentativa após resposta incerta do provedor; não promete exatamente uma entrega. Histórico e leitura continuam sendo responsabilidade da API e do banco. O chat continua via WebSocket. Esta implementação cobre Android; push para outras plataformas precisa de configuração específica.
 

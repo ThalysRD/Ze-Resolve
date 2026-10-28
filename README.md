@@ -2,41 +2,19 @@
 
 Projeto Integrador II de Sistemas para Internet do IFRN.
 
-Aplicativo Flutter, API própria FastAPI e banco relacional SQLite com ORM SQLAlchemy. Esta versão é preparada para apresentação local no Windows. O Flutter continua consumindo HTTP/REST e WebSocket; somente a API abre o banco.
+Aplicativo Flutter que conecta clientes a profissionais de serviços locais, com API própria em FastAPI e banco relacional SQLite (ORM SQLAlchemy). O aplicativo consome a API por HTTP/REST e WebSocket; somente a API acessa o banco.
 
-## Executar neste computador
+- Arquitetura, modelo de dados, justificativa do banco e REST × SOAP: [docs/arquitetura.md](docs/arquitetura.md)
+- Contrato REST: [docs/api.md](docs/api.md) e [docs/openapi.json](docs/openapi.json) (Swagger em `/docs` com a API em execução)
 
-Na raiz, em PowerShell:
+## Requisitos
 
-```powershell
-.\scripts\run_backend.ps1
-```
+- Python 3.12 ou superior (o SQLite já acompanha o Python)
+- Flutter compatível com o `pubspec.yaml` e Android SDK, para o aplicativo
 
-O banco persistente fica em `backend/data/apresentacao.db` e é criado/atualizado automaticamente. Não é preciso iniciar serviço de banco, Docker ou container. Os dados anteriores foram transferidos e verificados; os arquivos originais permanecem privados como backup.
+## 1. Preparar e iniciar a API
 
-- [Swagger](http://127.0.0.1:8000/docs)
-- [OpenAPI](http://127.0.0.1:8000/openapi.json)
-- [Saúde da API](http://127.0.0.1:8000/health)
-
-Em outro terminal, com celular conectado e depuração USB autorizada:
-
-```powershell
-.\scripts\run_android_usb.ps1
-```
-
-O script configura `adb reverse tcp:8000 tcp:8000` para HTTP e WebSocket e inicia Flutter. No Android Studio use **Ze Resolve - Android USB** após configurar o encaminhamento. Depois de reconectar o cabo, repita o encaminhamento.
-
-Para emulador Android:
-
-```powershell
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
-```
-
-No celular físico por Wi-Fi, ambos precisam estar na mesma rede. Inicie a API com `-BindAddress 0.0.0.0` e use `flutter run --dart-define=API_BASE_URL=http://IP_DO_COMPUTADOR:8000`. O endereço `10.0.2.2` é exclusivo do emulador. Trocar o endereço exige parar e iniciar o aplicativo; hot reload não altera `--dart-define`.
-
-## Preparar outro computador
-
-Requer Python 3.12+, Flutter compatível com `pubspec.yaml` e Android SDK para o app Android. SQLite já acompanha o Python.
+### Windows (PowerShell, na raiz do projeto)
 
 ```powershell
 python -m venv backend/.venv
@@ -45,13 +23,33 @@ Copy-Item backend/.env.example backend/.env
 Push-Location backend
 .\.venv\Scripts\python.exe -m app.setup_secrets
 Pop-Location
-flutter pub get
 .\scripts\run_backend.ps1 -Task seed
+.\scripts\run_backend.ps1
 ```
 
-Preserve a chave `backend/secrets/data-encryption.key` ao copiar um banco existente. Não gere outra chave para dados já cifrados. Chaves, bancos, sessões e configurações preenchidas ficam fora do Git. Para compilar Android, a configuração Firebase do projeto fica privadamente em `android/app/google-services.json`.
+### Linux ou macOS (terminal, na pasta `backend`)
 
-O seed é explícito e idempotente. Cria dados fictícios e três contas de demonstração, todas com senha `Demo12345!`:
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+.venv/bin/python -m app.setup_secrets
+set -a; . ./.env; set +a
+.venv/bin/python -m app.seed
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+A preparação é feita uma vez; depois basta o último comando. Com a API em execução:
+
+- [Swagger](http://127.0.0.1:8000/docs)
+- [OpenAPI](http://127.0.0.1:8000/openapi.json)
+- [Saúde da API](http://127.0.0.1:8000/health)
+
+O banco fica em `backend/data/apresentacao.db`, é criado automaticamente e mantém os dados após reiniciar a API. Não é preciso instalar serviço de banco nem Docker.
+
+## 2. Contas de demonstração
+
+O seed cria dados fictícios e três contas, todas com a senha `Demo12345!`. Ele pode ser executado novamente sem duplicar dados.
 
 | Perfil | Email |
 | --- | --- |
@@ -59,21 +57,50 @@ O seed é explícito e idempotente. Cria dados fictícios e três contas de demo
 | Eletricista | profissional@example.com |
 | Encanador | encanador@example.com |
 
-Perfis históricos sem valor da visita precisam defini-lo e publicar horários; valores antigos por hora não são convertidos automaticamente. Não use contas de demonstração para uma operação pública.
+## 3. Executar o aplicativo
 
-## Funcionalidades mantidas
+Com a API em execução, em outro terminal na raiz do projeto:
 
-Busca por categoria/cidade/proximidade, localização opcional, valor fixo da visita, agenda publicada, filtro de vagas nas próximas 24 horas e pedido sujeito ao aceite do profissional. Reservas pendentes expiram após o prazo configurado. Chat utiliza WebSocket e confirma envio após persistência. Notificações push dependem do Firebase e da conexão externa; o histórico e os avisos dentro do app ficam no SQLite.
-
-Autenticação real com bcrypt, sessões de 30 dias, permissões no servidor, endereços e dados privados protegidos com AES-GCM continuam funcionando. Recuperação/validação de email exige SMTP real, opcional para a apresentação; o sistema não simula entrega de email.
-
-## Verificar e documentar
-
-```powershell
-flutter analyze --no-pub
-.\scripts\run_backend.ps1 -Task docs
+```sh
+flutter pub get
 ```
 
-O segundo comando regenera `docs/openapi.json` e `docs/schema.sql` a partir do código. Dart format, Black e EditorConfig padronizam a formatação. Veja [SQLite local e backup](docs/sqlite.md), [arquitetura e justificativas](docs/arquitetura.md), [contrato REST](docs/api.md), [regras da agenda](docs/agenda_visitas.md), [segurança](docs/seguranca.md), [roteiro de apresentação](docs/apresentacao_mvp.md) e [status atual](docs/status_mvp.md).
+Emulador Android:
 
-Esta versão substitui a configuração anterior de servidor externo. Os pacotes antigos em `entregas/` não representam a configuração atual; não os aplique sobre este projeto.
+```sh
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+```
+
+Celular por cabo USB, com depuração USB autorizada:
+
+```sh
+adb reverse tcp:8000 tcp:8000
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+No Windows, `.\scripts\run_android_usb.ps1` faz esses dois passos. No Android Studio, use a configuração **Ze Resolve - Android USB** depois do `adb reverse`. Ao reconectar o cabo, repita o `adb reverse`.
+
+Celular por Wi-Fi: computador e celular na mesma rede. Inicie a API com `--host 0.0.0.0` (no Windows, `.\scripts\run_backend.ps1 -BindAddress 0.0.0.0`) e use `flutter run --dart-define=API_BASE_URL=http://IP_DO_COMPUTADOR:8000`.
+
+Trocar o endereço da API exige parar e iniciar o aplicativo; o hot reload não altera `--dart-define`.
+
+## Arquivos que ficam fora do Git
+
+Chaves, banco, `.env` e configurações privadas não são versionados; os passos acima recriam tudo o que é necessário.
+
+- `backend/.env`: copiado de `backend/.env.example`.
+- `backend/secrets/data-encryption.key`: gerada por `app.setup_secrets`. Ao copiar um banco existente, copie também a chave dele.
+- `android/app/google-services.json` (Firebase): opcional. Sem ele o aplicativo compila e funciona normalmente, apenas sem notificações push.
+- `android/key.properties`: necessário somente para gerar o APK de release assinado.
+
+## Funcionalidades
+
+Busca por categoria, cidade e proximidade, localização opcional, valor fixo da visita, agenda publicada pelo profissional, filtro de vagas nas próximas 24 horas e pedido sujeito ao aceite do profissional. Reservas pendentes expiram após o prazo configurado. O chat usa WebSocket e confirma o envio após gravar no banco. Notificações push dependem do Firebase; o histórico e os avisos dentro do app ficam no banco.
+
+Autenticação real com bcrypt, sessões de 30 dias, permissões verificadas no servidor e dados privados protegidos com AES-GCM. Recuperação e validação de email exigem um servidor SMTP real, opcional para a apresentação.
+
+## Documentação
+
+`.\scripts\run_backend.ps1 -Task docs` (Windows) ou `.venv/bin/python -m app.export_docs` (na pasta `backend`) regenera `docs/openapi.json` e `docs/schema.sql` a partir do código.
+
+Veja também [SQLite e backup](docs/sqlite.md), [regras da agenda](docs/agenda_visitas.md), [WebSocket](docs/websocket.md), [segurança](docs/seguranca.md), [regras de negócio](docs/regras_negocio.md) e [roteiro de apresentação](docs/apresentacao_mvp.md).

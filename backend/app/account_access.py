@@ -290,6 +290,7 @@ def register_account_access(app, engine, sessions, UserDependency, DBDependency)
         tags=["Autenticação"],
         status_code=204,
         summary="Redefinir senha com código de uso único",
+        description="Pública. Recebe email, código de uso único enviado por email e nova senha (mínimo de 8 caracteres e máximo de 72 bytes UTF-8). Código inválido, expirado ou já utilizado retorna 400. Ao redefinir, todas as sessões do usuário são encerradas. Sujeita a limite de tentativas; excesso retorna 429 com Retry-After.",
     )
     def reset_password(body: ResetInput, request: Request):
         authentication_limit(engine, request, "reset", body.email)
@@ -305,6 +306,7 @@ def register_account_access(app, engine, sessions, UserDependency, DBDependency)
         status_code=202,
         response_model=OperationAccepted,
         summary="Solicitar confirmação de email",
+        description="Pública. Envia um código de confirmação se a conta existir, estiver ativa e ainda não tiver o email confirmado. Responde 202 com a mesma mensagem em qualquer caso, sem revelar se o email está cadastrado. Sem servidor SMTP configurado retorna 503. Sujeita a limite de tentativas (429).",
     )
     def verification_request(body: Contact, request: Request):
         authentication_limit(engine, request, "verify-request", body.email)
@@ -332,6 +334,7 @@ def register_account_access(app, engine, sessions, UserDependency, DBDependency)
         tags=["Autenticação"],
         status_code=204,
         summary="Confirmar email com código de uso único",
+        description="Pública. Recebe email e código de confirmação. Código inválido, expirado ou já utilizado retorna 400; sucesso retorna 204 e marca o email como confirmado. Sujeita a limite de tentativas (429).",
     )
     def verify_email(body: CodeInput, request: Request):
         authentication_limit(engine, request, "verify", body.email)
@@ -345,6 +348,7 @@ def register_account_access(app, engine, sessions, UserDependency, DBDependency)
         response_model=list[SessionOut],
         tags=["Conta"],
         summary="Consultar minhas sessões sem expor tokens",
+        description="Autenticada (Bearer). Lista até 100 sessões do próprio usuário, da mais recente para a mais antiga, com emissão, expiração e se foi revogada. Nunca retorna o token nem seu hash. Sem token válido retorna 401.",
     )
     def sessions_list(user: UserDependency, db: DBDependency):
         rows = db.scalars(
@@ -367,6 +371,7 @@ def register_account_access(app, engine, sessions, UserDependency, DBDependency)
         tags=["Conta"],
         status_code=204,
         summary="Encerrar todas as minhas sessões",
+        description="Autenticada (Bearer). Exige a senha atual no corpo; senha incorreta retorna 403. Revoga todas as sessões do usuário, inclusive a atual, e retorna 204.",
     )
     def revoke_all(body: PasswordConfirm, user: UserDependency, db: DBDependency):
         if not passwords.verify(body.password, user.password_hash):

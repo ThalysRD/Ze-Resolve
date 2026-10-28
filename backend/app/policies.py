@@ -44,6 +44,7 @@ def register_policies(app):
         tags=["Documentos"],
         response_model=DocumentOut,
         summary="Consultar documento e versão de aceite",
+        description="Pública. `kind` aceita `terms` (Termos de Uso) ou `privacy` (Política de Privacidade) e retorna título, texto, versão e contato. Outro valor retorna 404.",
     )
     def legal_document(kind: str):
         return document(kind)

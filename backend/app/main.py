@@ -265,6 +265,7 @@ def create_app(url: str | None = None, *, enable_push: bool | None = None):
         tags=["Notificações"],
         response_model=list[s.RequestEventOut],
         summary="Listar meus avisos de agendamento",
+        description="Autenticada (Bearer). Lista os avisos de mudança de etapa das solicitações do próprio usuário, do mais recente para o mais antigo, com estado de leitura. Paginação por `limit` (1 a 100, padrão 50) e `offset`.",
     )
     def request_events(user: User, db: DB, limit: Limit = 50, offset: Offset = 0):
         return [
@@ -283,6 +284,7 @@ def create_app(url: str | None = None, *, enable_push: bool | None = None):
         tags=["Notificações"],
         status_code=204,
         summary="Marcar meu aviso de agendamento como lido",
+        description="Autenticada (Bearer). Marca o aviso como lido e retorna 204; repetir a operação não altera a data da primeira leitura. Aviso inexistente ou de outro usuário retorna 404.",
     )
     def read_event(event_id: int, user: User, db: DB):
         event = db.get(m.RequestEvent, event_id)
@@ -396,6 +398,7 @@ def create_app(url: str | None = None, *, enable_push: bool | None = None):
         "/health",
         tags=["Sistema"],
         summary="Verificar disponibilidade",
+        description="Pública. Consulta o banco e retorna `{\"status\": \"ok\"}` quando a API e o banco estão disponíveis.",
         response_model=dict[str, str],
     )
     def health(db: DB):
@@ -1244,6 +1247,7 @@ def create_app(url: str | None = None, *, enable_push: bool | None = None):
         tags=["Solicitações"],
         response_model=s.RequestSummaryOut,
         summary="Resumo dos meus atendimentos",
+        description="Autenticada (Bearer). Para o cliente, considera as solicitações que criou; para o profissional, as que recebeu. Retorna o total por estado e até 20 solicitações ainda abertas (pendente, aceita ou em andamento), ordenadas pela data agendada.",
     )
     def requests_summary(user: User, db: DB):
         owner = (

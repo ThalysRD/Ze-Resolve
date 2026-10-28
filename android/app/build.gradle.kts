@@ -4,8 +4,13 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services")
+    id("com.google.gms.google-services") apply false
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Firebase (push) é opcional: sem google-services.json o app compila e roda sem notificações push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 val signingValues = Properties()

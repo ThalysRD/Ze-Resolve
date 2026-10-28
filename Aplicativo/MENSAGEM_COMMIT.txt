@@ -1,1 +1,0 @@
-feat(app): integrar agenda de visitas, localização e mensagens

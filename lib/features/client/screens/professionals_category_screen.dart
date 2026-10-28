@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/api/page_window.dart';
+
 import '../../shared/widgets/app_bottom_nav_bar.dart';
-import 'professional_profile_screen.dart';
+import '../../shared/screens/api_screens.dart';
+import '../../shared/widgets/design_data.dart';
+import '../../../core/location/location_service.dart';
 
 class ProfessionalsCategoryScreen extends StatefulWidget {
-  const ProfessionalsCategoryScreen({super.key});
+  const ProfessionalsCategoryScreen({
+    super.key,
+    this.categoryId,
+    this.categoryName = 'Profissionais',
+    this.q = '',
+    this.initialWithin24Hours = false,
+  });
+  final bool initialWithin24Hours;
+  final int? categoryId;
+  final String categoryName, q;
 
   @override
   State<ProfessionalsCategoryScreen> createState() =>
@@ -13,73 +26,85 @@ class ProfessionalsCategoryScreen extends StatefulWidget {
 
 class _ProfessionalsCategoryScreenState
     extends State<ProfessionalsCategoryScreen> {
-  String _selectedFilter = 'Todos';
-
-  late List<_ProfessionalItem> _professionals;
+  bool _onlyAvailable = false;
+  late bool _within24Hours;
+  bool _bestRated = false;
+  final _page = PageWindow();
+  bool _loadingMore = false;
 
   @override
   void initState() {
     super.initState();
-    _professionals = [
-      _ProfessionalItem(
-        id: '1',
-        name: 'João Silva',
-        specialty: 'Eletricista',
-        rating: 4.9,
-        reviews: 142,
-        price: 'R\$ 80,00',
-        imageUrl:
-            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        initials: 'JS',
-        isFavorite: true,
-      ),
-      _ProfessionalItem(
-        id: '2',
-        name: 'Marcos Lima',
-        specialty: 'Eletricista',
-        rating: 4.8,
-        reviews: 98,
-        price: 'R\$ 75,00',
-        imageUrl:
-            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-        initials: 'ML',
-        isFavorite: false,
-      ),
-      _ProfessionalItem(
-        id: '3',
-        name: 'Pedro Santos',
-        specialty: 'Eletricista',
-        rating: 4.7,
-        reviews: 76,
-        price: 'R\$ 90,00',
-        imageUrl:
-            'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
-        initials: 'PS',
-        isFavorite: false,
-      ),
-      _ProfessionalItem(
-        id: '4',
-        name: 'Renato Alves',
-        specialty: 'Eletricista',
-        rating: 4.6,
-        reviews: 54,
-        price: 'R\$ 85,00',
-        imageUrl:
-            'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
-        initials: 'RA',
-        isFavorite: false,
-      ),
-    ];
+    _within24Hours = widget.initialWithin24Hours;
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DesignData(
+    load: () async => {
+      'professionals': await _page.first(
+        (offset, limit) async => designApi.list(
+          '/professionals',
+          query: {
+            ...(await LocationService.searchQuery()),
+            if (widget.categoryId != null)
+              'category_id': '${widget.categoryId}',
+            if (widget.q.isNotEmpty) 'q': widget.q,
+            if (_onlyAvailable) 'available': 'true',
+            if (_within24Hours) 'available_within_hours': '24',
+            'sort': _bestRated ? 'rating' : 'distance',
+            'offset': '$offset',
+            'limit': '$limit',
+          },
+        ),
+      ),
+    },
+    builder: _loaded,
+  );
+  Future<void> _more() async {
+    setState(() => _loadingMore = true);
+    try {
+      await _page.more();
+    } catch (error) {
+      if (mounted) notify(context, error);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _filter(BuildContext context, String filter) {
+    switch (filter) {
+      case 'Todos':
+        _onlyAvailable = _within24Hours = _bestRated = false;
+      case 'Disponíveis':
+        _onlyAvailable = !_onlyAvailable;
+      case 'Próximas 24h':
+        _within24Hours = !_within24Hours;
+      case 'Mais bem avaliados':
+        _bestRated = !_bestRated;
+    }
+    DesignData.refresh(context);
+  }
+
+  Widget _loaded(BuildContext context, DesignJson data) {
+    final professionals = designRows(data, 'professionals')
+        .map(
+          (p) => _ProfessionalItem(
+            id: p['id'] as int,
+            name: p['name'] as String,
+            specialty: p['category_name'] as String,
+            rating: (p['rating'] as num).toDouble(),
+            reviews: p['review_count'] as int,
+            price:
+                '${designPrice(p['visit_fee_cents'])}${p['distance_km'] == null ? '' : ' · ${p['distance_km']} km'}',
+            initials: designInitials(p['name'] as String),
+          ),
+        )
+        .toList();
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: Row(
@@ -102,32 +127,32 @@ class _ProfessionalsCategoryScreenState
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Eletricistas',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1B2430),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.categoryName,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1B2430),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Encontre o profissional ideal',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF7C7C80),
+                        SizedBox(height: 2),
+                        Text(
+                          'Encontre o profissional ideal',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF7C7C80),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-
-            // Filter Chips
             SizedBox(
               height: 38,
               child: ListView(
@@ -136,59 +161,75 @@ class _ProfessionalsCategoryScreenState
                 children: [
                   _FilterChip(
                     label: 'Todos',
-                    selected: _selectedFilter == 'Todos',
-                    onTap: () => setState(() => _selectedFilter = 'Todos'),
+                    selected: !_onlyAvailable && !_within24Hours && !_bestRated,
+                    onTap: () => _filter(context, 'Todos'),
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
                     label: 'Disponíveis',
-                    selected: _selectedFilter == 'Disponíveis',
-                    onTap: () => setState(() => _selectedFilter = 'Disponíveis'),
+                    selected: _onlyAvailable,
+                    onTap: () => _filter(context, 'Disponíveis'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChip(
+                    label: 'Próximas 24h',
+                    selected: _within24Hours,
+                    onTap: () => _filter(context, 'Próximas 24h'),
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
                     label: 'Mais bem avaliados',
-                    selected: _selectedFilter == 'Mais bem avaliados',
-                    onTap: () =>
-                        setState(() => _selectedFilter = 'Mais bem avaliados'),
+                    selected: _bestRated,
+                    onTap: () => _filter(context, 'Mais bem avaliados'),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-
-            // Professional Cards List
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _professionals.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = _professionals[index];
-                  return _ProfessionalCard(
-                    professional: item,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ProfessionalProfileScreen(
-                            name: item.name,
-                            specialty: item.specialty,
-                            rating: item.rating,
-                            reviews: item.reviews,
-                            price: item.price,
-                          ),
+              child: professionals.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'Nenhum profissional encontrado para esses filtros. Remova o filtro de 24 horas, amplie o raio ou escolha outra cidade.',
                         ),
-                      );
-                    },
-                    onFavoriteToggle: () {
-                      setState(() {
-                        item.isFavorite = !item.isFavorite;
-                      });
-                    },
-                  );
-                },
-              ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: professionals.length + (_page.hasMore ? 1 : 0),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        if (index == professionals.length) {
+                          return Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: OutlinedButton(
+                              onPressed: _loadingMore ? null : _more,
+                              child: Text(
+                                _loadingMore
+                                    ? 'Carregando…'
+                                    : 'Carregar mais profissionais',
+                              ),
+                            ),
+                          );
+                        }
+                        final item = professionals[index];
+                        return _ProfessionalCard(
+                          professional: item,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => LiveProfessionalScreen(
+                                  professionalId: item.id,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -222,9 +263,7 @@ class _FilterChip extends StatelessWidget {
           color: selected ? const Color(0xFFF5B800) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected
-                ? const Color(0xFFF5B800)
-                : const Color(0xFFE0E0E0),
+            color: selected ? const Color(0xFFF5B800) : const Color(0xFFE0E0E0),
           ),
         ),
         child: Center(
@@ -243,15 +282,10 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _ProfessionalCard extends StatelessWidget {
-  const _ProfessionalCard({
-    required this.professional,
-    required this.onTap,
-    required this.onFavoriteToggle,
-  });
+  const _ProfessionalCard({required this.professional, required this.onTap});
 
   final _ProfessionalItem professional;
   final VoidCallback onTap;
-  final VoidCallback onFavoriteToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -267,34 +301,22 @@ class _ProfessionalCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Profile image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Image.network(
-                professional.imageUrl,
-                width: 56,
-                height: 56,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 56,
-                    height: 56,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEDEDED),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        professional.initials,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1B2430),
-                        ),
-                      ),
-                    ),
-                  );
-                },
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEDEDED),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  professional.initials,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1B2430),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -302,40 +324,37 @@ class _ProfessionalCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title + Favorite button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        professional.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1B2430),
+                      Expanded(
+                        child: Text(
+                          professional.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1B2430),
+                          ),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: onFavoriteToggle,
-                        child: Icon(
-                          professional.isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: professional.isFavorite
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF7C7C80),
-                          size: 20,
-                        ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF7C7C80),
+                        size: 20,
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-
-                  // Badge + Star + Rating + Reviews
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 4,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFF8E1),
                           borderRadius: BorderRadius.circular(6),
@@ -375,14 +394,12 @@ class _ProfessionalCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-
-                  // Price
                   RichText(
                     text: TextSpan(
                       style: const TextStyle(fontSize: 12),
                       children: [
                         const TextSpan(
-                          text: 'A partir de ',
+                          text: 'Visita: ',
                           style: TextStyle(color: Color(0xFF7C7C80)),
                         ),
                         TextSpan(
@@ -413,18 +430,14 @@ class _ProfessionalItem {
     required this.rating,
     required this.reviews,
     required this.price,
-    required this.imageUrl,
     required this.initials,
-    this.isFavorite = false,
   });
 
-  final String id;
+  final int id;
   final String name;
   final String specialty;
   final double rating;
   final int reviews;
   final String price;
-  final String imageUrl;
   final String initials;
-  bool isFavorite;
 }

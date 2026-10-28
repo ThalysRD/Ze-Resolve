@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../profile/profile_screen.dart';
+import '../../../shared/screens/account_access.dart';
+
 import '../login/login_screen.dart';
+import '../../../../core/api/api_client.dart';
+import '../../../../core/errors/user_message.dart';
+import '../../session/auth_session.dart';
+import '../../../client/screens/home_client_screen.dart';
+import '../../../professional/screens/home_professional_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,6 +20,92 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _termsAccepted = false;
+  bool _busy = false;
+  String _role = 'cliente';
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+
+  @override
+  void dispose() {
+    for (final controller in [_name, _email, _phone, _password, _confirm]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _register() async {
+    if (!_termsAccepted || _password.text != _confirm.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aceite os termos e confirme a senha corretamente.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final account = await ApiClient.instance.request(
+        'POST',
+        '/auth/register',
+        body: {
+          'name': _name.text,
+          'email': _email.text.trim(),
+          'phone': _phone.text,
+          'password': _password.text,
+          'role': _role,
+          'accepted_terms': _termsAccepted,
+          'terms_version': currentTermsVersion,
+        },
+      );
+      if (!mounted) return;
+      if (account['verification_required'] == true) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => AccountAccessScreen(
+              verifyEmail: true,
+              email: _email.text.trim(),
+            ),
+          ),
+          (_) => false,
+        );
+        return;
+      }
+      try {
+        await AppSession.login(_email.text, _password.text);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conta criada. Entre com seu email e senha.'),
+          ),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (_) => false,
+        );
+        return;
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => _role == 'cliente'
+              ? const HomeClientScreen()
+              : const HomeProfessionalScreen(),
+        ),
+        (_) => false,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userErrorMessage(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,44 +153,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 20),
 
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 96,
-                      height: 96,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEDEDED),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt_outlined,
-                        size:50,
-                        color: Color(0xFF9A9AA2),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Adicionar foto (opcional)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF9A9AA2),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              const _Input(hint: 'Nome Completo'),
+              _Input(hint: 'Nome Completo', controller: _name),
               const SizedBox(height: 12),
-              const _Input(hint: 'Email'),
+              _Input(hint: 'Email', controller: _email),
               const SizedBox(height: 12),
-              const _Input(hint: 'Telefone'),
+              _Input(hint: 'Telefone', controller: _phone),
               const SizedBox(height: 12),
 
               _Input(
                 hint: 'Senha',
+                controller: _password,
+                password: true,
                 obscure: _obscurePassword,
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -117,6 +182,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               _Input(
                 hint: 'Confirme sua senha',
+                controller: _confirm,
+                password: true,
                 obscure: _obscureConfirmPassword,
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -127,10 +194,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: const Color(0xFF9A9AA2),
                   ),
                   onPressed: () {
-                    setState(() =>
-                        _obscureConfirmPassword = !_obscureConfirmPassword);
+                    setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    );
                   },
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                initialValue: _role,
+                decoration: const InputDecoration(
+                  labelText: 'Como você vai usar o app?',
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'cliente',
+                    child: Text('Quero contratar serviços'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'profissional',
+                    child: Text('Quero oferecer serviços'),
+                  ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _role = value!),
               ),
               const SizedBox(height: 16),
 
@@ -161,19 +250,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
               ),
+              Wrap(
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const LegalDocumentScreen(kind: 'terms'),
+                      ),
+                    ),
+                    child: const Text('Ler termos de uso'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const LegalDocumentScreen(kind: 'privacy'),
+                      ),
+                    ),
+                    child: const Text('Ler política de privacidade'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
 
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: _busy ? null : _register,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF5B800),
                     foregroundColor: const Color(0xFF1B2430),
@@ -182,9 +289,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Começar',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  child: Text(
+                    _busy ? 'Criando conta…' : 'Começar',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -194,17 +301,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: GestureDetector(
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const LoginScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
                   },
                   child: RichText(
                     text: const TextSpan(
-                      style: TextStyle(
-                        color: Color(0xFF6B6B76),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
                       children: [
                         TextSpan(text: 'Já tem uma conta? '),
                         TextSpan(
@@ -251,24 +353,37 @@ class _BackButton extends StatelessWidget {
 }
 
 class _Input extends StatelessWidget {
-  const _Input({required this.hint, this.obscure = false, this.suffixIcon});
+  const _Input({
+    required this.hint,
+    this.obscure = false,
+    this.password = false,
+    this.suffixIcon,
+    this.controller,
+  });
 
   final String hint;
   final bool obscure;
+  final bool password;
   final Widget? suffixIcon;
+  final TextEditingController? controller;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       obscureText: obscure,
+      autocorrect: !password,
+      enableSuggestions: !password,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFAFAFAF), fontSize: 14),
         filled: true,
         fillColor: Colors.white,
         suffixIcon: suffixIcon,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFE0E0E0)),

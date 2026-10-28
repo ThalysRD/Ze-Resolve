@@ -1,26 +1,53 @@
 import 'package:flutter/material.dart';
 
+import 'professionals_category_screen.dart';
+import '../../shared/widgets/design_data.dart';
 import '../../shared/utils/safe_pop.dart';
 import '../../shared/widgets/app_bottom_nav_bar.dart';
 
-class SearchScreen extends StatelessWidget {
+class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
+  @override
+  State<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends State<SearchScreen> {
+  final _search = TextEditingController();
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _open({int? id, String label = 'Profissionais', String? q}) =>
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProfessionalsCategoryScreen(
+            categoryId: id,
+            categoryName: label,
+            q: q ?? _search.text.trim(),
+          ),
+        ),
+      );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DesignData(
+    load: () async => {'categories': await designApi.list('/categories')},
+    builder: _loaded,
+  );
+  Widget _loaded(BuildContext context, DesignJson data) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
             children: [
               const SizedBox(height: 10),
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () => safePop(context, userType: NavUserType.client),
+                    onTap: () => safePop(context),
                     child: Container(
                       width: 40,
                       height: 40,
@@ -58,11 +85,17 @@ class SearchScreen extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
-                  children: const [
-                    Icon(Icons.search, color: Color(0xFF9A9AA2), size: 20),
+                  children: [
+                    const Icon(
+                      Icons.search,
+                      color: Color(0xFF9A9AA2),
+                      size: 20,
+                    ),
                     SizedBox(width: 10),
                     Expanded(
                       child: TextField(
+                        controller: _search,
+                        onSubmitted: (_) => _open(),
                         decoration: InputDecoration(
                           isDense: true,
                           border: InputBorder.none,
@@ -90,22 +123,25 @@ class SearchScreen extends StatelessWidget {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: const [
-                  _SearchChip(label: 'Eletricista'),
-                  _SearchChip(label: 'Encanador'),
-                  _SearchChip(label: 'Pintor'),
-                  _SearchChip(label: 'Informática'),
-                  _SearchChip(label: 'Mudanças'),
-                  _SearchChip(label: 'Montagem'),
-                  _SearchChip(label: 'Contabilidade'),
-                ],
+                children: designRows(data, 'categories')
+                    .map(
+                      (c) => GestureDetector(
+                        onTap: () => _open(
+                          id: c['id'] as int,
+                          label: c['name'] as String,
+                          q: '',
+                        ),
+                        child: _SearchChip(label: c['name'] as String),
+                      ),
+                    )
+                    .toList(),
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => _open(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF5B800),
                     foregroundColor: const Color(0xFF1B2430),

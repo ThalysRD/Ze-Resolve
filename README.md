@@ -116,3 +116,5 @@ Autenticação real com bcrypt, sessões de 30 dias, permissões verificadas no 
 `.\scripts\run_backend.ps1 -Task docs` (Windows) ou `.venv/bin/python -m app.export_docs` (na pasta `backend`) regenera `docs/openapi.json` e `docs/schema.sql` a partir do código.
 
 Veja também [SQLite e backup](docs/sqlite.md), [regras da agenda](docs/agenda_visitas.md), [WebSocket](docs/websocket.md), [segurança](docs/seguranca.md) e [regras de negócio](docs/regras_negocio.md).
+
+Relatórios das avaliações: [Avaliação 2](docs/avaliacoes/Projeto_Integrador_II_Avaliacao_2_Ze_Resolve.pdf), [Avaliação 3](docs/avaliacoes/Projeto_Integrador_II_Avaliacao_3_Ze_Resolve.pdf) e [Atividade 4 – Segurança](docs/atividade4/RELATORIO.md).

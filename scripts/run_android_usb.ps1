@@ -1,4 +1,4 @@
-param([string]$DeviceId)
+param([string]$DeviceId, [switch]$Http)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -20,11 +20,20 @@ if (-not $DeviceId) {
     $DeviceId = $devices[0]
 }
 
-& $adbPath -s $DeviceId reverse tcp:8000 tcp:8000
+# Padrão: HTTPS com a AC do Zé Resolve fixada no app. -Http mantém o modo antigo, sem criptografia.
+$port = if ($Http) { 8000 } else { 8443 }
+$defines = @("--dart-define=API_BASE_URL=$(if ($Http) { 'http' } else { 'https' })://127.0.0.1:$port")
+if (-not $Http) {
+    $caPath = Join-Path $projectRoot 'backend\secrets\tls\ca.crt'
+    if (-not (Test-Path -LiteralPath $caPath)) { throw 'AC ausente. Gere com: .\scripts\run_backend.ps1 -Task tls' }
+    $defines += "--dart-define=API_CA_CERT_B64=$([Convert]::ToBase64String([IO.File]::ReadAllBytes($caPath)))"
+}
+
+& $adbPath -s $DeviceId reverse tcp:$port tcp:$port
 if ($LASTEXITCODE -ne 0) { throw 'Não foi possível encaminhar a porta da API pelo USB.' }
 
 Push-Location -LiteralPath $projectRoot
 try {
-    & flutter run -d $DeviceId --dart-define=API_BASE_URL=http://127.0.0.1:8000
+    & flutter run -d $DeviceId @defines
     if ($LASTEXITCODE -ne 0) { throw 'O Flutter não conseguiu iniciar o aplicativo.' }
 } finally { Pop-Location }

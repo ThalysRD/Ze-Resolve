@@ -17,6 +17,28 @@ logger.setLevel(logging.INFO)
 logger.propagate = False
 
 
+class RedactQueryString(logging.Filter):
+    """Remove a query string do log de acesso do uvicorn.
+
+    Buscas por proximidade enviam latitude e longitude na URL. Sem este
+    filtro, rodar o uvicorn sem --no-access-log gravaria a localização do
+    usuário no terminal e em arquivos de log.
+    """
+
+    def filter(self, record):
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+            path = args[2].split("?", 1)[0]
+            record.args = (*args[:2], path, *args[3:])
+        return True
+
+
+def protect_access_log():
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, RedactQueryString) for f in access.filters):
+        access.addFilter(RedactQueryString())
+
+
 class HttpControls:
     def __init__(self, app, max_bytes=65536):
         self.app, self.max_bytes = app, max_bytes

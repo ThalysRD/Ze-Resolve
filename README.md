@@ -36,8 +36,20 @@ cp .env.example .env
 .venv/bin/python -m app.setup_secrets
 set -a; . ./.env; set +a
 .venv/bin/python -m app.seed
-.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
+
+### HTTPS (recomendado)
+
+A API também roda com TLS, usando uma autoridade certificadora (AC) local do projeto. O aplicativo confia somente nessa AC (fixação de certificado).
+
+```powershell
+.\scripts\run_backend.ps1 -Task tls      # uma vez: gera backend/secrets/tls (fora do Git)
+.\scripts\run_backend.ps1 -Https         # API em https://127.0.0.1:8443
+.\scripts\run_android_usb.ps1            # app em HTTPS com a AC fixada (-Http volta ao modo antigo)
+```
+
+No Linux/macOS: `.venv/bin/python -m app.tls_setup` e acrescente `--port 8443 --ssl-certfile secrets/tls/server.crt --ssl-keyfile secrets/tls/server.key` ao comando do uvicorn, com `REQUIRE_HTTPS=true`. Detalhes em [docs/seguranca.md](docs/seguranca.md).
 
 A preparação é feita uma vez; depois basta o último comando. Com a API em execução:
 

@@ -1,8 +1,9 @@
-param(
+﻿param(
     [string]$BindAddress = '127.0.0.1',
     [ValidateRange(1, 65535)][int]$Port = 8000,
     [switch]$Reload,
-    [ValidateSet('server', 'seed', 'docs', 'upgrade')][string]$Task = 'server'
+    [switch]$Https,
+    [ValidateSet('server', 'seed', 'docs', 'upgrade', 'tls')][string]$Task = 'server'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,12 +40,24 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
 
 $serverArguments = @('-m', 'uvicorn', 'app.main:app', '--host', $BindAddress, '--port', "$Port", '--no-access-log', '--limit-concurrency', '128', '--ws-max-size', '16384')
 if ($Reload) { $serverArguments += '--reload' }
+if ($Https -and $Task -eq 'server') {
+    $tlsPath = Join-Path $backendPath 'secrets\tls'
+    $certificate = Join-Path $tlsPath 'server.crt'
+    $privateKey = Join-Path $tlsPath 'server.key'
+    if (-not ((Test-Path -LiteralPath $certificate) -and (Test-Path -LiteralPath $privateKey))) {
+        throw 'Certificado TLS ausente. Gere com: .\scripts\run_backend.ps1 -Task tls'
+    }
+    if (-not $PSBoundParameters.ContainsKey('Port')) { $Port = 8443; $serverArguments[6] = '8443' }
+    $serverArguments += @('--ssl-certfile', $certificate, '--ssl-keyfile', $privateKey)
+    $env:REQUIRE_HTTPS = 'true'
+}
 if ($Task -eq 'seed') { $serverArguments = @('-m', 'app.seed') }
 if ($Task -eq 'docs') { $serverArguments = @('-m', 'app.export_docs') }
 if ($Task -eq 'upgrade') { $serverArguments = @('-m', 'app.migrate') }
+if ($Task -eq 'tls') { $serverArguments = @('-m', 'app.tls_setup') }
 Push-Location -LiteralPath $backendPath
 try {
-    if ($Task -eq 'server') { Write-Host "Iniciando API em http://${BindAddress}:$Port." }
+    if ($Task -eq 'server') { $scheme = if ($Https) { 'https' } else { 'http' }; Write-Host "Iniciando API em ${scheme}://${BindAddress}:$Port." }
     & $pythonPath @serverArguments
     exit $LASTEXITCODE
 } finally {

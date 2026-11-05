@@ -51,7 +51,7 @@ from .request_events import record_event, event_out, event_worker
 from .account_access import issue_code, register_account_access
 from .mail import configured as mail_configured, mail_worker
 from .policies import VERSION as TERMS_VERSION, register_policies
-from .http_controls import HttpControls
+from .http_controls import HttpControls, protect_access_log
 
 dummy_hash = passwords.hash("dummy-password-for-timing")
 bearer = HTTPBearer(
@@ -77,10 +77,12 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def create_app(url: str | None = None, *, enable_push: bool | None = None):
     validate_settings()
+    protect_access_log()
     engine, sessions = make_database(url or database_url())
 
     @asynccontextmanager
     async def lifespan(app):
+        protect_access_log()
         if production():
             validate_schema(engine)
             if not mail_configured() or not os.getenv("APP_CONTACT_EMAIL"):
@@ -193,6 +195,8 @@ def create_app(url: str | None = None, *, enable_push: bool | None = None):
         else:
             response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"
         if private:
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
@@ -398,7 +402,7 @@ def create_app(url: str | None = None, *, enable_push: bool | None = None):
         "/health",
         tags=["Sistema"],
         summary="Verificar disponibilidade",
-        description="Pública. Consulta o banco e retorna `{\"status\": \"ok\"}` quando a API e o banco estão disponíveis.",
+        description='Pública. Consulta o banco e retorna `{"status": "ok"}` quando a API e o banco estão disponíveis.',
         response_model=dict[str, str],
     )
     def health(db: DB):

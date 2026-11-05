@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api_client.dart';
+import 'secure_transport.dart';
 import '../errors/user_message.dart';
 
 class ChatClient extends ChangeNotifier {
@@ -51,7 +52,7 @@ class ChatClient extends ChangeNotifier {
       path: '${base.path}/ws/requests/$requestId',
       query: null,
     );
-    final channel = WebSocketChannel.connect(url);
+    final channel = openWebSocket(url);
     final connectionToken = _api.token;
     _channel = channel;
     _subscription = channel.stream.listen(

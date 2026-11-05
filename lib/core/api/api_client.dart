@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../errors/user_message.dart';
+import 'secure_transport.dart';
 
 class ApiException implements UserFacingException {
   const ApiException(this.message, [this.statusCode]);
@@ -68,7 +69,7 @@ String _validationMessage(dynamic error) {
 
 class ApiClient {
   ApiClient({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
+    : _client = client ?? apiHttpClient(),
       baseUrl = (baseUrl ?? configuredUrl).replaceFirst(RegExp(r'/+$'), '');
 
   static String get configuredUrl {

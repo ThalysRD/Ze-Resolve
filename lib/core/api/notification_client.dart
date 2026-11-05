@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api_client.dart';
+import 'secure_transport.dart';
 import '../errors/user_message.dart';
 
 class NotificationClient extends ChangeNotifier with WidgetsBindingObserver {
@@ -70,7 +71,7 @@ class NotificationClient extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_channel?.sink.close());
     if (generation != _generation) return;
     final base = Uri.parse(api.baseUrl);
-    final channel = WebSocketChannel.connect(
+    final channel = openWebSocket(
       base.replace(
         scheme: base.scheme == 'https' ? 'wss' : 'ws',
         path: '${base.path}/ws/notifications',

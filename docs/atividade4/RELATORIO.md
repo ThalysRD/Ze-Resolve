@@ -38,9 +38,21 @@ O Zé Resolve conecta clientes a profissionais de serviços. O app troca com a A
 
 ## Etapa 3 – Testes e validação
 
-### Testes automatizados (`backend/tests/test_transport_security.py`)
+Todas as evidências abaixo são a saída real dos comandos, capturada ao executá-los; as imagens 01 e 02 são prints do emulador.
 
-Cada teste sobe a API real com o uvicorn. Resultado: **6 de 6 aprovados**; a suíte completa da API passou com **70 testes**, e a do app com **114 testes**.
+### Teste 1 – Certificados gerados corretamente
+
+**Objetivo:** confirmar que a AC local emitiu o certificado da API para os endereços usados pelo app, e que as chaves privadas não vão para o Git.
+**Procedimento:** `.\scripts\run_backend.ps1 -Task tls` e leitura dos certificados gerados em `backend/secrets/tls/`.
+**Resultado:** o certificado da API é emitido pela "Zé Resolve AC local", vale para `localhost`, `127.0.0.1` e `10.0.2.2`, usa ECDSA P-256 com SHA-256, e o Git ignora `ca.key` e `server.key`.
+
+![Certificados TLS gerados](03-certificados-tls.png)
+
+### Teste 2 – Testes automatizados
+
+**Objetivo:** verificar de forma repetível cada comportamento do mecanismo.
+**Procedimento:** `python -m pytest -v tests/test_transport_security.py` (cada teste sobe a API real com o uvicorn) e `flutter test test/secure_transport_test.dart`.
+**Resultado:** **6 de 6** testes da API e **3 de 3** do app aprovados. A suíte completa passou com 70 testes da API e 114 do app.
 
 | Teste | Objetivo | Resultado |
 |---|---|---|
@@ -49,25 +61,56 @@ Cada teste sobe a API real com o uvicorn. Resultado: **6 de 6 aprovados**; a su�
 | HTTP recusado | Conexão sem TLS na porta HTTPS é derrubada | Aprovado |
 | HTTPS obrigatório | API com `REQUIRE_HTTPS=true` responde `400` a HTTP comum | Aprovado |
 | Certificado de atacante | Servidor com certificado de outra AC é rejeitado com `SSLCertVerificationError` | Aprovado |
-| Log sem localização | `GET /professionals?latitude=...` aparece no log só como `GET /professionals` | Aprovado. **Contraprova:** com a correção desligada, o teste falha e mostra a latitude no log. |
+| Log sem localização | `GET /professionals?latitude=...` aparece no log só como `GET /professionals` | Aprovado (contraprova no Teste 5) |
 
-### Teste prático no aplicativo (emulador Android)
+![Saída dos testes automatizados](04-testes-automatizados.png)
+
+### Teste 3 – API real em HTTPS diante de três clientes
+
+**Objetivo:** ver, na API em execução, quem é atendido e quem é barrado.
+**Procedimento:** API iniciada com TLS e `REQUIRE_HTTPS=true`; três requisições a `/health`: um cliente que confia só na AC do Zé Resolve (como o app), um cliente HTTP comum e um cliente que só confia nas AC do sistema.
+**Resultado:** o primeiro recebe `200 {"status":"ok"}` por **TLS 1.3**, com o cabeçalho `Strict-Transport-Security`. O HTTP é derrubado e o terceiro recebe `SSLCertVerificationError`. O log da API registra **só** a primeira requisição: as outras nem chegam à aplicação.
+
+![API real em HTTPS e três clientes](05-https-api-real.png)
+
+### Teste 4 – Ataque simulado com certificado falso
+
+**Objetivo:** simular um "homem no meio" que se passa pela API com um certificado emitido por outra AC.
+**Procedimento:** um servidor impostor com certificado da "AC do atacante" sobe numa porta; um cliente com a AC do Zé Resolve fixada tenta acessá-lo.
+**Resultado:** a conexão é recusada com `CERTIFICATE_VERIFY_FAILED`, e o log do impostor não tem nenhuma requisição: nenhum dado chegou a ser enviado.
+
+![Ataque simulado com certificado falso](06-ataque-certificado-falso.png)
+
+### Teste 5 – Log de acesso antes e depois da correção (contraprova)
+
+**Objetivo:** provar que a correção remove a localização do log, e que sem ela o vazamento acontece.
+**Procedimento:** o uvicorn é iniciado **sem** `--no-access-log` e recebe a mesma busca por proximidade duas vezes: com a correção desligada de propósito e com ela ativa.
+**Resultado:** sem a correção, o log grava `latitude=-5.7945&longitude=-35.2110`; com a correção, grava só `GET /professionals`.
+
+![Log antes e depois da correção](07-log-sem-localizacao.png)
+
+### Teste 6 – Teste prático no aplicativo (emulador Android)
 
 **Objetivo:** verificar que o app só conversa com a API verdadeira e recusa um servidor falso.
-
 **Procedimento:**
-1. Gerar a AC (`run_backend.ps1 -Task tls`), subir a API com `-Https` e instalar o app compilado com a AC fixada.
+1. Gerar a AC, subir a API com `run_backend.ps1 -Https` e instalar o app compilado com a AC fixada.
 2. Fazer login no app e observar o log da API.
-3. Desligar a API e subir, na mesma porta, um **servidor impostor** com certificado de outra AC ("AC do atacante"), simulando um ataque "homem no meio".
+3. Desligar a API e subir, na mesma porta 8443, um servidor impostor com certificado da "AC do atacante".
 4. Tentar o login de novo e observar o app e o log do impostor.
 
 **Resultado:**
-- Com a API verdadeira, a requisição `POST /auth/login` chegou ao servidor por HTTPS (evidência: `01-login-https-chega-na-api.png` e o log da API).
-- Com o impostor, o app exibiu "Não foi possível concluir agora. Tente novamente" e o **impostor não recebeu nenhuma requisição**: a conexão foi encerrada no handshake TLS, antes de o email e a senha saírem do aparelho (evidência: `02-certificado-falso-recusado.png`).
-- Verificação direta na API real: HTTPS com a AC → `200 {"status":"ok"}` com HSTS; HTTP → conexão derrubada; cliente que não conhece a AC → `SSLCertVerificationError`.
+- Com a API verdadeira, o `POST /auth/login` do app chegou ao servidor por HTTPS. O status 401 ocorre só porque a conta de demonstração não existe naquele banco; o que se verifica aqui é o transporte.
+- Com o impostor, o app exibiu "Não foi possível concluir agora. Tente novamente" e o impostor **não registrou nenhuma requisição**: o app recusou o certificado antes de enviar email e senha.
 
-**Análise:** o TLS cifra token, dados pessoais e mensagens em trânsito (confidencialidade) e impede alterações no caminho (integridade). A fixação vai além do HTTPS comum: mesmo com uma AC falsa instalada no celular, o app recusa o servidor impostor e não envia nenhum dado a ele. A correção do log elimina o vazamento de localização na origem, sem depender da disciplina de quem inicia o servidor.
+| API verdadeira | Servidor impostor |
+|---|---|
+| ![Login chega à API por HTTPS](01-login-https-chega-na-api.png) | ![Certificado falso recusado](02-certificado-falso-recusado.png) |
 
+![Logs do servidor durante o teste no emulador](08-logs-teste-no-emulador.png)
+
+### Análise
+
+O TLS cifra token, dados pessoais e mensagens em trânsito (confidencialidade) e impede alterações no caminho (integridade). A fixação vai além do HTTPS comum: mesmo com uma AC falsa instalada no celular, o app recusa o servidor impostor e não envia nenhum dado a ele (Testes 4 e 6). A correção do log elimina o vazamento de localização na origem, sem depender de quem inicia o servidor lembrar uma opção (Teste 5).
 ## Limitações
 
 - O certificado é de uma AC local, adequada à apresentação. Em produção, a API usaria um certificado público (por exemplo, Let's Encrypt) e o app fixaria a chave pública desse certificado.
